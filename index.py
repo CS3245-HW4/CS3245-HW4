@@ -28,8 +28,7 @@ import nltk
 import json
 from collections import defaultdict
 from math import log10, sqrt
-from os import listdir
-from os.path import isfile, join
+import os
 from itertools import groupby
 try:
     import cPickle as pickle
@@ -47,10 +46,10 @@ def load_all_doc_names(docs_dir):
     :param docs_dir: The document directory path as a string
     :return: A list of (docID, file_path) tuples, sorted by docID as integers
     """
-    sorted_members = sorted([int(dir_member) for dir_member in listdir(docs_dir)])
+    sorted_members = sorted(os.listdir(docs_dir))
     # Additional check for only files in directory
-    joined_members = [(dir_member, join(docs_dir, str(dir_member))) for dir_member in sorted_members]
-    joined_files = [(member_name, member_path) for member_name, member_path in joined_members if isfile(member_path)]
+    joined_members = [(dir_member, os.path.join(docs_dir, dir_member)) for dir_member in sorted_members]
+    joined_files = [(member_name, member_path) for member_name, member_path in joined_members if os.path.isfile(member_path)]
     return joined_files
 
 def get_doc_tokens(doc_name):
@@ -125,7 +124,7 @@ def calculate_doc_lengths(postings_list):
             doc_sum_squares[docID] += pow(weight, 2)
     doc_lengths = {}
     for docID in doc_sum_squares:
-        doc_lengths[int(docID)] = sqrt(doc_sum_squares[docID])
+        doc_lengths[docID] = sqrt(doc_sum_squares[docID])
     return doc_lengths
 
 def idf_docs(df, big_N):
@@ -149,7 +148,7 @@ def write_postings(postings_list, postings_file_name, big_N):
     for term, postings in postings_list.iteritems():
         posting_pointer = postings_file.tell()
         # doc_tuple has the format (docID, lnc_weight)
-        postings_file.write(" ".join([",".join([str(docID), "%.9f" % weight]) for docID, weight in postings]))
+        postings_file.write(" ".join([",".join([docID, "%.9f" % weight]) for docID, weight in postings]))
         write_length = postings_file.tell() - posting_pointer
         postings_file.write("\n")
         dict_terms[term] = (posting_pointer, write_length, idf_docs(len(postings), big_N))
