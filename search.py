@@ -7,8 +7,10 @@ import heapq
 import time
 import math
 from itertools import groupby, chain, islice
+from information_need import InformationNeed
 
 show_time = True
+LANG = "english"
 
 k = 10  # number of results to return
 
@@ -21,7 +23,7 @@ def sort_relevant_docs(most_relevant_docs):
     grouped_relevant = groupby(most_relevant_docs, key=lambda score_doc_entry: score_doc_entry[0])
     sorted_relevant = [sorted(equal_score_entries[1], key=lambda equal_score_entry: equal_score_entry[1]) for equal_score_entries in grouped_relevant]
     flattened_relevant = chain.from_iterable(sorted_relevant)
-    trimmed_relevant = islice(flattened_relevant, k) # Takes first k elements from the iterable. If there are less than k elements, it stops when the iterable stops
+    trimmed_relevant = islice(flattened_relevant, len(most_relevant_docs)) # Takes first k elements from the iterable. If there are less than k elements, it stops when the iterable stops
     relevant_docIDs = [str(docID) for score, docID in trimmed_relevant] # Finally, extract the docID from the tuple and convert it to a string to be written to output
     return list(relevant_docIDs)
 
@@ -35,7 +37,7 @@ def first_k_most_relevant(doc_scores):
     scores = [(-score, docID) for docID, score in doc_scores.iteritems()] # invert the scores so that heappop gives us the smallest score
     heapq.heapify(scores)
     most_relevant_docs = []
-    for _ in range(k):
+    for _ in range(len(scores)):
         if not scores:
             break
         most_relevant_docs.append(heapq.heappop(scores))
@@ -60,7 +62,7 @@ def load_args():
     """Attempts to parse command line arguments fed into the script when it was called.
     Notifies the user of the correct format if parsing failed.
     """
-    dictionary_file = postings_file = queries_file = output_file = None
+    dictionary_file = postings_file = query_file = output_file = None
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:')
@@ -73,18 +75,18 @@ def load_args():
         elif o == '-p':
             postings_file = a
         elif o == '-q':
-            queries_file = a
+            query_file = a
         elif o == '-o':
             output_file = a
         else:
             assert False, "unhandled option"
-    if dictionary_file is None or postings_file is None or queries_file is None or output_file is None:
+    if dictionary_file is None or postings_file is None or query_file is None or output_file is None:
         usage()
         sys.exit(2)
-    return dictionary_file, postings_file, queries_file, output_file
+    return dictionary_file, postings_file, query_file, output_file
 
 
-def process_queries(dictionary_file, postings_file, queries_file, output_file):
+def process_queries(dictionary_file, postings_file, query_file, output_file):
     # load dictionary
     begin = time.time() * 1000.0
     with open(dictionary_file) as dict_file:
@@ -96,22 +98,23 @@ def process_queries(dictionary_file, postings_file, queries_file, output_file):
     postings = file(postings_file)
     output = file(output_file, 'w')
 
-    with open(queries_file) as queries:
-        for query in queries:
+    q = InformationNeed(query_file).get_data()
+    query = " ".join([q["title"], q["description"]])
 
-            query_terms = normalize(query)
-            single_term_query = len(query_terms) == 1
-            doc_scores = {}
+    query_terms = normalize(query)
+    single_term_query = len(query_terms) == 1
+    doc_scores = {}
 
-            for term in query_terms:
-                doc_scores = update_relevance(doc_scores, dictionary, postings, query_terms, term, single_term_query)
+    for term in query_terms:
+        doc_scores = update_relevance(doc_scores, dictionary, postings, query_terms, term, single_term_query)
 
-            for key in doc_scores:
-                doc_scores[key] /= doc_length[str(key)]
+    for key in doc_scores:
+        doc_scores[key] /= doc_length[str(key)]
 
-            results = first_k_most_relevant(doc_scores)
-            output.write(" ".join(results))
-            output.write("\n")
+    results = first_k_most_relevant(doc_scores)
+    print(len(results))
+    output.write(" ".join([" ".join([docID, str(doc_scores[docID])]) for docID in results]))
+    output.write("\n")
 
     postings.close()
     output.close()
@@ -138,8 +141,9 @@ def normalize(query):
     :return:
     """
     query_tokens = nltk.word_tokenize(query)
+    stopwords_removed = [token.lower() for token in query_tokens if token.lower() not in set(nltk.corpus.stopwords.words(LANG))]
     stemmer = nltk.stem.PorterStemmer()
-    query_terms = map(lambda word : stemmer.stem(word.lower()), query_tokens)
+    query_terms = map(lambda word : stemmer.stem(word), stopwords_removed)
     return query_terms
 
 
@@ -180,16 +184,16 @@ def read_postings(term, dictionary, postings_file):
             postings_file.seek(term_pointer)
             postings = postings_file.read(postings_length).split()
             postings = map(lambda docID_and_tf : docID_and_tf.split(","), postings)
-            postings = map(lambda docID_and_tf : [int(docID_and_tf[0]), float(docID_and_tf[1])],postings)
+            postings = map(lambda docID_and_tf : [docID_and_tf[0], float(docID_and_tf[1])],postings)
             return postings
         else:
             return []
 
 
 def main():
-    dictionary_file, postings_file, queries_file, output_file = load_args()
+    dictionary_file, postings_file, query_file, output_file = load_args()
 
-    process_queries(dictionary_file, postings_file, queries_file, output_file)
+    process_queries(dictionary_file, postings_file, query_file, output_file)
 
 if __name__ == "__main__":
     main()

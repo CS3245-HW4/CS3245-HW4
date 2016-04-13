@@ -29,12 +29,14 @@ import json
 from collections import defaultdict
 from math import log10, sqrt
 import os
+from patent import Patent
 from itertools import groupby
 try:
     import cPickle as pickle
 except:
     import pickle
 
+LANG = "english"
 
 def load_all_doc_names(docs_dir):
     """Takes in the document directory path, and lists names of all non-directory
@@ -58,12 +60,13 @@ def get_doc_tokens(doc_name):
     :param doc_name: A tuple containing the docID, and doc_path which is the filepath to the document.
     """
     docID, doc_path = doc_name
-    with open(doc_path) as doc_file:
-        doc = doc_file.read()
+    p = Patent(doc_path).get_data()
+    doc = " ".join([p.get("Title", ""), p.get("Abstract", "")])
     # Tokenize to doc content to sentences, then to words.
-    sentences = nltk.tokenize.sent_tokenize(doc)
+    words = nltk.tokenize.word_tokenize(doc)
+    stopwords_removed = [word.lower() for word in words if word.lower() not in set(nltk.corpus.stopwords.words(LANG))]
     stemmer = nltk.stem.porter.PorterStemmer()
-    return [stemmer.stem(word.lower()) for sentence in sentences for word in nltk.tokenize.word_tokenize(sentence)] 
+    return [stemmer.stem(word) for word in stopwords_removed]
 
 def index_doc(doc_name, postings_list):
     """Indexes a single document in the corpus. Makes use of stemming and tokenization.
