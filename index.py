@@ -26,6 +26,7 @@ import getopt
 import sys
 import nltk
 import json
+import string
 from collections import defaultdict
 from math import log10, sqrt
 import os
@@ -64,7 +65,8 @@ def get_doc_tokens(doc_name):
     doc = " ".join([p.get("Title", ""), p.get("Abstract", "")])
     # Tokenize to doc content to sentences, then to words.
     words = nltk.tokenize.word_tokenize(doc)
-    stopwords_removed = [word.lower() for word in words if word.lower() not in set(nltk.corpus.stopwords.words(LANG))]
+    punctuation_removed = [word for word in words if word not in string.punctuation]
+    stopwords_removed = [word.lower() for word in punctuation_removed if word.lower() not in set(nltk.corpus.stopwords.words(LANG))]
     stemmer = nltk.stem.porter.PorterStemmer()
     return [stemmer.stem(word) for word in stopwords_removed]
 

@@ -6,10 +6,11 @@ import json
 import heapq
 import time
 import math
+import string
 from itertools import groupby, chain, islice
 from information_need import InformationNeed
 
-show_time = True
+show_time = False
 LANG = "english"
 
 k = 10  # number of results to return
@@ -111,9 +112,9 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
     for key in doc_scores:
         doc_scores[key] /= doc_length[str(key)]
 
-    results = first_k_most_relevant(doc_scores)
-    print(len(results))
-    output.write(" ".join([" ".join([docID, str(doc_scores[docID])]) for docID in results]))
+    results = first_k_most_relevant(doc_scores)[:500]
+    # output.write(" ".join([" ".join([docID, str(doc_scores[docID])]) for docID in results]))
+    output.write(" ".join([docID[:-4] for docID in results]))
     output.write("\n")
 
     postings.close()
@@ -140,8 +141,10 @@ def normalize(query):
     :param query:
     :return:
     """
+    # punctuation_removed = string.translate(str(query), None, string.punctuation)
     query_tokens = nltk.word_tokenize(query)
-    stopwords_removed = [token.lower() for token in query_tokens if token.lower() not in set(nltk.corpus.stopwords.words(LANG))]
+    punctuation_removed = [word for word in query_tokens if word not in string.punctuation]
+    stopwords_removed = [token.lower() for token in punctuation_removed if token.lower() not in set(nltk.corpus.stopwords.words(LANG))]
     stemmer = nltk.stem.PorterStemmer()
     query_terms = map(lambda word : stemmer.stem(word), stopwords_removed)
     return query_terms
