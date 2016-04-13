@@ -5,36 +5,39 @@ import lib.xmltodict as xmltodict
 import unittest
 
 
-class PatentFileException(Exception):
+class InformationNeedFileException(Exception):
     """Raised when file is empty"""
     def __init__(self, filename):
         self.filename = filename
 
 
-class Patent:
-    """Patent data as extracted from XML"""
+class InformationNeed:
+    """Information need data as extracted from XML"""
     def __init__(self, filename):
         with open(filename, 'r') as infile:
             data = infile.read().replace('\n', '')
         if data is not None:
             temp_dict = xmltodict.parse(data)
             self.dict = dict()
-            for each in temp_dict['doc']['str']:
-                if u'#text' in each.keys() and u'#text' in each.keys():
-                    self.dict[each[u'@name']] = each[u'#text']
+            temp_dict = dict(temp_dict['query'])
+            for item in temp_dict:
+                if item == u'description':
+                    self.dict[item] = temp_dict[item][33:]
+                else:
+                    self.dict[item] = temp_dict[item]
         else:
-            raise PatentFileException(filename)
+            raise InformationNeed(filename)
 
     def get_data(self):
         return self.dict
 
 
-class TestPatentClass(unittest.TestCase):
+class TestInformationNeedClass(unittest.TestCase):
 
     def test_read_patent(self):
-        with open("tests/json/patent_class_test1.txt", 'r') as infile:
+        with open("tests/json/information_need_class_test1.txt", 'r') as infile:
             output = infile.read().replace('\n', '')
-        p = Patent("corpus/patsnap-corpus/EP0049154B2.xml")
+        p = InformationNeed("corpus/q1.xml")
         self.assertEqual(output, str(p.get_data()))
 
 if __name__ == '__main__':
