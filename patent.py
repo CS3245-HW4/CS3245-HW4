@@ -6,7 +6,7 @@ import unittest
 
 
 class PatentFileException(Exception):
-    """File"""
+    """Raised when file is empty"""
     def __init__(self, filename):
         self.filename = filename
 
