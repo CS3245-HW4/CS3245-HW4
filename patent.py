@@ -85,7 +85,7 @@ class TestPatentClass(unittest.TestCase):
         """
         with open("tests/json/patent_class_test1.txt", 'r') as infile:
             output = infile.read().replace('\n', '')
-        p = Patent("corpus/patsnap-corpus/EP0049154B2.xml")
+        p = Patent("tests/patsnap_corpus/EP0049154B2.xml")
         self.assertEqual(output, str(p.get_data()))
 
 

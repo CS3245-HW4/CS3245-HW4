@@ -92,7 +92,7 @@ class TestInformationNeedClass(unittest.TestCase):
         with open("tests/json/information_need_class_test1.txt", 'r') \
                 as infile:
             output = infile.read().replace('\n', '')
-        p = InformationNeed("corpus/q1.xml")
+        p = InformationNeed("tests/info_need/q1.xml")
         self.assertEqual(output, str(p.get_data()))
 
 
