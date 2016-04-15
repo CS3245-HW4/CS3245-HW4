@@ -1,26 +1,3 @@
-"""
-Dictionary format:
-[
-    {
-        "67": 5.46,
-        "238": 1.23
-    }
-    {
-        "hi": [0, 2, 4.567495861],
-        "bye": [3, 1, 0.123584232]
-    }
-]
-
-[] = list
-{} = dict
-(no tuples)
-
-VSM lnc vector length of document 238:  dictionary[0]["238"]
-Pointer to "retrieval":                 dictionary[1]["retrieval"][0]
-Length of postings for "retrieval":     dictionary[1]["retrieval"][1]
-idf of "retrieval":                     dictionary[1]["retrieval"][2]
-"""
-
 import getopt
 import sys
 import nltk
