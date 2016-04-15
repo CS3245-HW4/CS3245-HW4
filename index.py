@@ -81,13 +81,15 @@ def get_doc_content(doc_name):
     """
     docID, doc_path = doc_name
     p = Patent(doc_path).get_data()
-    doc = " ".join([p.get("Title", ""), p.get("Abstract", "")])
+    #doc = " ".join([p.get("Title", ""), p.get("Abstract", "")])
+    title = p.get("Title", "")
+    abstract = p.get("Abstract", "")
     ipc = p.get("IPC Class", "")
 
     # Tokenize to doc content to sentences, then to words.
-    return (normalize(doc), ipc)
+    return (normalize(title), normalize(abstract), ipc)
 
-def index_doc(doc_name, postings_list):
+def index_doc(doc_name, title_postings_list, abstract_postings_list):
     """Indexes a single doc in corpus. Makes use of stemming & tokenization.
     Returns metadata of the doc.
 
@@ -97,14 +99,19 @@ def index_doc(doc_name, postings_list):
     of the indexing process.
     """
     docID, doc_path = doc_name
-    words, ipc = get_doc_content(doc_name)
+    title_words, abstract_words, ipc = get_doc_content(doc_name)
     # Append doc to postings list.
     # No need to sort the list if we call index_doc in sorted docID order.
-    for word in words:
-        if word in postings_list:
-            postings_list[word].append(docID)
+    for word in title_words:
+        if word in title_postings_list:
+            title_postings_list[word].append(docID)
         else:
-            postings_list[word] = [docID]
+            title_postings_list[word] = [docID]
+    for word in abstract_words:
+        if word in abstract_postings_list:
+            abstract_postings_list[word].append(docID)
+        else:
+            abstract_postings_list[word] = [docID]
     return ipc
 
 def index_all_docs(docs):
@@ -117,13 +124,14 @@ def index_all_docs(docs):
     documents, sorted by docID
     :return: The inverted index constructed from the given documents
     """
-    postings_list = {}
+    title_postings_list = {}
+    abstract_postings_list = {}
     IPC_dict = {}
     for doc in docs:
         docID, doc_path = doc
-        ipc = index_doc(doc, postings_list)
+        ipc = index_doc(doc, title_postings_list, abstract_postings_list)
         IPC_dict[docID] = ipc
-    return (postings_list, IPC_dict)
+    return (title_postings_list, abstract_postings_list, IPC_dict)
 
 def lnc_from_tf(tf):
     """Takes tf, and uses lnc to convert it to the term weight. The formula is
@@ -146,28 +154,38 @@ def convert_preliminary_postings(preliminary_postings):
     for word in preliminary_postings:
         docIDs = preliminary_postings[word]
         groupedDocIDs = [(docID, lnc_from_tf(len(list(group))))
-                         for (docID,group) in groupby(docIDs)]
+                         for docID, group in groupby(docIDs)]
         converted_postings[word] = groupedDocIDs
     return converted_postings
 
 
-def calculate_metadata(postings_list, IPC_dict):
+def calculate_metadata(title_postings_list, abstract_postings_list, IPC_dict):
     """Calculates VSM lnc vector length for each document, given postings list,
     and add the IPC values.
 
     :param postings_list: The postings list which contains (docID, lnc_weight)
     tuples as term postings.
     """
-    doc_sum_squares = defaultdict(float)
-    for term in postings_list:
-        for docID, weight in postings_list[term]:
-            doc_sum_squares[docID] += pow(weight, 2)
-    doc_lengths = {}
-    for docID in doc_sum_squares:
-        doc_lengths[docID] = sqrt(doc_sum_squares[docID])
+    title_sum_squares = defaultdict(float)
+    abstract_sum_squares = defaultdict(float)
+    for term in title_postings_list:
+        for docID, weight in title_postings_list[term]:
+            title_sum_squares[docID] += pow(weight, 2)
+    for term in abstract_postings_list:
+        for docID, weight in abstract_postings_list[term]:
+            abstract_sum_squares[docID] += pow(weight, 2)
+    
+    title_lengths = {}
+    abstract_lengths = {}
+    for docID in title_sum_squares:
+        title_lengths[docID] = sqrt(title_sum_squares[docID])
+    for docID in abstract_sum_squares:
+        abstract_lengths[docID] = sqrt(abstract_sum_squares[docID])
+    
     docs_metadata = {}
     for docID in IPC_dict:
-        docs_metadata[docID] = (doc_lengths[docID], IPC_dict[docID])
+        docs_metadata[docID] = (title_lengths[docID], abstract_lengths.get(docID, 0), IPC_dict[docID])
+    
     return docs_metadata
 
 
@@ -181,7 +199,7 @@ def idf_docs(df, big_N):
     return log10(float(big_N)/df)
 
 
-def write_postings(postings_list, postings_file_name, big_N):
+def write_postings(title_postings_list, abstract_postings_list, postings_file_name, big_N):
     """Given an inverted index, write each term onto disk, while keeping track
     of the pointer to the start of postings for each term, together with the
     run length of said postings on the file, which will be used to construct
@@ -194,15 +212,25 @@ def write_postings(postings_list, postings_file_name, big_N):
     """
     #postings_file = file(postings_file_name, 'w')
     with open(postings_file_name, 'w') as postings_file:
-        dict_terms = {}
-        for term, postings in postings_list.iteritems():
+        dict_terms = {"Title":{}, "Abstract":{}}
+        for term, postings in title_postings_list.iteritems():
             posting_pointer = postings_file.tell()
             # doc_tuple has the format (docID, lnc_weight)
             postings_file.write(" ".join([",".join([docID, "%.9f" % weight])
                                           for docID, weight in postings]))
             write_length = postings_file.tell() - posting_pointer
             postings_file.write("\n")
-            dict_terms[term] = (posting_pointer,
+            dict_terms["Title"][term] = (posting_pointer,
+                                write_length,
+                                idf_docs(len(postings), big_N))
+        for term, postings in abstract_postings_list.iteritems():
+            posting_pointer = postings_file.tell()
+            # doc_tuple has the format (docID, lnc_weight)
+            postings_file.write(" ".join([",".join([docID, "%.9f" % weight])
+                                          for docID, weight in postings]))
+            write_length = postings_file.tell() - posting_pointer
+            postings_file.write("\n")
+            dict_terms["Abstract"][term] = (posting_pointer,
                                 write_length,
                                 idf_docs(len(postings), big_N))
     #postings_file.close()
@@ -284,14 +312,15 @@ def main():
 
     print "Constructing the inverted index...",
     sys.stdout.flush()
-    preliminary_postings_list, IPC_dict = index_all_docs(docs)
-    postings_list = convert_preliminary_postings(preliminary_postings_list)
-    docs_metadata = calculate_metadata(postings_list, IPC_dict)
+    title_postings_list, abstract_postings_list, IPC_dict = index_all_docs(docs)
+    converted_title_postings_list = convert_preliminary_postings(title_postings_list)
+    converted_abstract_postings_list = convert_preliminary_postings(abstract_postings_list)
+    docs_metadata = calculate_metadata(converted_title_postings_list, converted_abstract_postings_list, IPC_dict)
     print "DONE"
 
     print "Writing postings to {0}...".format(postings_file),
     sys.stdout.flush()
-    dict_terms = write_postings(postings_list, postings_file, big_N)
+    dict_terms = write_postings(converted_title_postings_list, converted_abstract_postings_list, postings_file, big_N)
     print "DONE"
 
     print "Writing dictionary to {0}...".format(dict_file),

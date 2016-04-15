@@ -84,8 +84,8 @@ def docIDs_decreasing_score(doc_scores):
 
 def expand_query(sorted_docIDs, doc_scores, docs_metadata):
     top_20_docIDs = sorted_docIDs[:20]
-    top_20_IPCs = set([docs_metadata[docID][1] for docID in top_20_docIDs])
-    docs_in_IPCs = [docID for docID, doc_metadata in docs_metadata.iteritems() if doc_metadata[1] in top_20_IPCs]
+    top_20_IPCs = set([docs_metadata[docID][2] for docID in top_20_docIDs])
+    docs_in_IPCs = [docID for docID, doc_metadata in docs_metadata.iteritems() if doc_metadata[2] in top_20_IPCs]
     #print(len(docs_metadata))
     #print(len(top_20_IPCs))
     #print(len(docs_in_IPCs))
@@ -93,7 +93,7 @@ def expand_query(sorted_docIDs, doc_scores, docs_metadata):
     #print(docs_IPCs_scores[1])
     sorted_docs_IPCs_scores = sorted(docs_IPCs_scores, key=lambda score_entry: score_entry[1], reverse=True)
     sorted_docs = [docID for docID, doc_score in sorted_docs_IPCs_scores]
-    
+    #print(sorted_docs_IPCs_scores)
     #for docID in docs_in_IPCs:
     #    docs_IPCs_scores[docID] = doc_scores[docID] if docID in doc_scores else 0
     #converted_results = [docID for docID in sorted_nonzero_score_docIDs if docs_metadata[docID][1] in top_20_IPCs]
@@ -150,22 +150,39 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
     output = file(output_file, 'w')
 
     q = InformationNeed(query_file).get_data()
-    query = " ".join([q["title"], q["description"]])
+    #query = " ".join([q["title"], q["description"]])
+    query_title = q["title"]
+    query_description = q["description"]
 
-    query_terms = normalize(query)
-    single_term_query = len(query_terms) == 1
-    doc_scores = {}
+    title_terms = normalize(query_title)
+    description_terms = normalize(query_description)
 
-    for term in query_terms:
-        doc_scores = update_relevance(doc_scores, dictionary, postings,
-                                      query_terms, term, single_term_query)
+    single_term_title = len(title_terms) == 1
+    single_term_description = len(description_terms) == 1
+    
+    title_scores = {}
+    for term in title_terms:
+        title_scores = update_relevance(title_scores, dictionary, postings,
+                                      title_terms, term, single_term_title, "Title")
+    for docID in title_scores:
+        # [0] is title_length, [1] abstract_length, [2] is IPC
+        title_scores[docID] /= docs_metadata[str(docID)][0]
 
-    for docID in doc_scores:
-        # [0] is length, [1] is IPC
-        doc_scores[docID] /= docs_metadata[str(docID)][0]
-
+    description_scores = {}
+    for term in description_terms:
+        description_scores = update_relevance(description_scores, dictionary, postings,
+                                      description_terms, term, single_term_description, "Abstract")
+    print(description_scores["US7442313.xml"])
+    for docID in description_scores:
+        # [0] is title_length, [1] abstract_length, [2] is IPC
+        description_scores[docID] /= docs_metadata[str(docID)][1]
+    print(docs_metadata["US7442313.xml"])
+    print(description_scores["US7442313.xml"])
     # It's OK to get all results, it's really fast anyway.
     #results = first_k_most_relevant(doc_scores)
+    doc_scores = {}
+    for docID in docs_metadata:
+        doc_scores[docID] = (title_scores.get(docID, 0) * 0.1) + (description_scores.get(docID, 0) * 0.95)
     results = docIDs_decreasing_score(doc_scores)
     expanded_results = expand_query(results, doc_scores, docs_metadata)
 
@@ -212,15 +229,13 @@ def normalize(query):
 
 
 def update_relevance(doc_scores, dictionary, postings_file, query_terms,
-                     term, single_term_query):
-
-    postings = read_postings(term, dictionary, postings_file)
+                     term, single_term_query, field):
+    postings = read_postings(term, dictionary, postings_file, field)
     
     for docID_and_tf in postings:
-
         docID, tf_in_doc = docID_and_tf
         tf_in_query = query_terms.count(term)
-        term_idf = dictionary[term][2]
+        term_idf = dictionary[field][term][2]
 
         weight_of_term_in_doc = tf_in_doc
         weight_of_term_in_query = 1 \
@@ -234,10 +249,14 @@ def update_relevance(doc_scores, dictionary, postings_file, query_terms,
             if single_term_query \
             else weight_of_term_in_doc * weight_of_term_in_query
 
+        if docID == "US7442313.xml":
+            print(term)
+            print(doc_scores[docID])
+
     return doc_scores
 
 
-def read_postings(term, dictionary, postings_file):
+def read_postings(term, dictionary, postings_file, field):
         """ Gets own postings list from file and stores it in its attribute.
         For search token nodes only.
 
@@ -251,9 +270,9 @@ def read_postings(term, dictionary, postings_file):
         bytes.
         """
 
-        if term in dictionary:
-            term_pointer = dictionary[term][0]
-            postings_length = dictionary[term][1]
+        if term in dictionary[field]:
+            term_pointer = dictionary[field][term][0]
+            postings_length = dictionary[field][term][1]
             postings_file.seek(term_pointer)
             postings = postings_file.read(postings_length).split()
             postings = map(lambda docID_and_tf :
