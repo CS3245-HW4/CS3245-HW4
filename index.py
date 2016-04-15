@@ -58,18 +58,12 @@ def load_all_doc_names(docs_dir):
                     if os.path.isfile(member_path)]
     return joined_files
 
+def normalize(text):
+    """Converts text into a list of normalized tokens of the text.
 
-def get_doc_tokens(doc_name):
-    """Extracts all tokens in the given document as elements in a list.
-
-    :param doc_name: A tuple containing the docID, and doc_path which is the
-    filepath to the document.
+    :param text: List of lowercased, stemmed tokens of the text, minus punctuation and stopwords.
     """
-    docID, doc_path = doc_name
-    p = Patent(doc_path).get_data()
-    doc = " ".join([p.get("Title", ""), p.get("Abstract", "")])
-    # Tokenize to doc content to sentences, then to words.
-    words = nltk.tokenize.word_tokenize(doc)
+    words = nltk.tokenize.word_tokenize(text)
     punctuation_removed = [word for word in words
                            if word not in string.punctuation]
     stopwords_removed = [word.lower() for word in punctuation_removed
@@ -78,9 +72,24 @@ def get_doc_tokens(doc_name):
     stemmer = nltk.stem.porter.PorterStemmer()
     return [stemmer.stem(word) for word in stopwords_removed]
 
+def get_doc_content(doc_name):
+    """Extracts all tokens in the given document as elements in a list.
+    Also extracts the IPC subclass of the patent.
+
+    :param doc_name: A tuple containing the docID, and doc_path which is the
+    filepath to the document.
+    """
+    docID, doc_path = doc_name
+    p = Patent(doc_path).get_data()
+    doc = " ".join([p.get("Title", ""), p.get("Abstract", "")])
+    ipc = p.get("IPC Subclass", "")
+
+    # Tokenize to doc content to sentences, then to words.
+    return (normalize(doc), ipc)
 
 def index_doc(doc_name, postings_list):
     """Indexes a single doc in corpus. Makes use of stemming & tokenization.
+    Returns metadata of the doc.
 
     :param doc_name: A tuple containing the docID (to be stored as a posting)
     and doc_path which is the filepath to the document.
@@ -88,7 +97,7 @@ def index_doc(doc_name, postings_list):
     of the indexing process.
     """
     docID, doc_path = doc_name
-    words = get_doc_tokens(doc_name)
+    words, ipc = get_doc_content(doc_name)
     # Append doc to postings list.
     # No need to sort the list if we call index_doc in sorted docID order.
     for word in words:
@@ -96,7 +105,7 @@ def index_doc(doc_name, postings_list):
             postings_list[word].append(docID)
         else:
             postings_list[word] = [docID]
-
+    return ipc
 
 def index_all_docs(docs):
     """Calls index_doc on all documents in their order in the list passed as
@@ -109,10 +118,12 @@ def index_all_docs(docs):
     :return: The inverted index constructed from the given documents
     """
     postings_list = {}
+    IPC_dict = {}
     for doc in docs:
-        index_doc(doc, postings_list)
-    return postings_list
-
+        docID, doc_path = doc
+        ipc = index_doc(doc, postings_list)
+        IPC_dict[docID] = ipc
+    return (postings_list, IPC_dict)
 
 def lnc_from_tf(tf):
     """Takes tf, and uses lnc to convert it to the term weight. The formula is
@@ -126,6 +137,8 @@ def lnc_from_tf(tf):
 def convert_preliminary_postings(preliminary_postings):
     """Converts postings in the form of [docID1, docID2, docID2, docID3,
     docID4,...] to [(docID1, 1), (docID2, 2), (docID3, 1), (docID3, 1),...]
+    and then to [(docID1, 0.968), (docID2, 0.232),...] (from term frequency
+    to lnc_weight)
 
     :param preliminary_postings: Ungrouped document ID postings
     """
@@ -138,8 +151,9 @@ def convert_preliminary_postings(preliminary_postings):
     return converted_postings
 
 
-def calculate_doc_lengths(postings_list):
-    """Calculates VSM lnc vector length for each document, given postings list.
+def calculate_metadata(postings_list, IPC_dict):
+    """Calculates VSM lnc vector length for each document, given postings list,
+    and add the IPC values.
 
     :param postings_list: The postings list which contains (docID, lnc_weight)
     tuples as term postings.
@@ -151,7 +165,10 @@ def calculate_doc_lengths(postings_list):
     doc_lengths = {}
     for docID in doc_sum_squares:
         doc_lengths[docID] = sqrt(doc_sum_squares[docID])
-    return doc_lengths
+    docs_metadata = {}
+    for docID in IPC_dict:
+        docs_metadata[docID] = (doc_lengths[docID], IPC_dict[docID])
+    return docs_metadata
 
 
 def idf_docs(df, big_N):
@@ -175,19 +192,20 @@ def write_postings(postings_list, postings_file_name, big_N):
     :return: A dictionary object with term as key and a tuple of (postings
     pointer, postings run length in the file) as value
     """
-    postings_file = file(postings_file_name, 'w')
-    dict_terms = {}
-    for term, postings in postings_list.iteritems():
-        posting_pointer = postings_file.tell()
-        # doc_tuple has the format (docID, lnc_weight)
-        postings_file.write(" ".join([",".join([docID, "%.9f" % weight])
-                                      for docID, weight in postings]))
-        write_length = postings_file.tell() - posting_pointer
-        postings_file.write("\n")
-        dict_terms[term] = (posting_pointer,
-                            write_length,
-                            idf_docs(len(postings), big_N))
-    postings_file.close()
+    #postings_file = file(postings_file_name, 'w')
+    with open(postings_file_name, 'w') as postings_file:
+        dict_terms = {}
+        for term, postings in postings_list.iteritems():
+            posting_pointer = postings_file.tell()
+            # doc_tuple has the format (docID, lnc_weight)
+            postings_file.write(" ".join([",".join([docID, "%.9f" % weight])
+                                          for docID, weight in postings]))
+            write_length = postings_file.tell() - posting_pointer
+            postings_file.write("\n")
+            dict_terms[term] = (posting_pointer,
+                                write_length,
+                                idf_docs(len(postings), big_N))
+    #postings_file.close()
     return dict_terms
 
 
@@ -203,9 +221,9 @@ def all_doc_IDs(docs):
     return [docID for docID, doc_path in docs]
 
 
-def create_dictionary(document_lengths, dict_terms, dict_file_name):
-    """Combines the list of all document IDs (necessary for computing NOT), and
-    the dictionary itself, to create the dictionary file,and then writes the
+def create_dictionary(docs_metadata, dict_terms, dict_file_name):
+    """Combines the metadata dictionary - keyed by docID, and
+    the dictionary itself, to create the dictionary file, and then writes the
     resulting list to the specified file path as a JSON data structure.
 
     :param document_lengths: A mapping from docID to its VSM vector length.
@@ -213,9 +231,10 @@ def create_dictionary(document_lengths, dict_terms, dict_file_name):
     pointer, postings run length in the file) as value
     :param dict_file_name: The file path of the resultant dictionary file
     """
-    dict_file = file(dict_file_name, 'w')
-    json.dump([document_lengths, dict_terms], dict_file)
-    dict_file.close()
+    with open(dict_file_name, 'w') as dict_file:
+    #dict_file = file(dict_file_name, 'w')
+        json.dump((docs_metadata, dict_terms), dict_file)
+    #dict_file.close()
 
 
 def usage():
@@ -265,9 +284,9 @@ def main():
 
     print "Constructing the inverted index...",
     sys.stdout.flush()
-    preliminary_postings_list = index_all_docs(docs)
+    preliminary_postings_list, IPC_dict = index_all_docs(docs)
     postings_list = convert_preliminary_postings(preliminary_postings_list)
-    doc_lengths = calculate_doc_lengths(postings_list)
+    docs_metadata = calculate_metadata(postings_list, IPC_dict)
     print "DONE"
 
     print "Writing postings to {0}...".format(postings_file),
@@ -277,7 +296,7 @@ def main():
 
     print "Writing dictionary to {0}...".format(dict_file),
     sys.stdout.flush()
-    create_dictionary(doc_lengths, dict_terms, dict_file)
+    create_dictionary(docs_metadata, dict_terms, dict_file)
     print "DONE"
 
 

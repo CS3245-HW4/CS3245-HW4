@@ -70,6 +70,16 @@ def first_k_most_relevant(doc_scores):
             break
     return sort_relevant_docs(most_relevant_docs)
 
+def docIDs_decreasing_score(doc_scores):
+    """Returns the list of docIDs, sorted by descending document scores.
+
+    :param doc_scores: A dictionary of docID to its corresponding document's
+    score.
+    """
+    sorted_scores = sorted(doc_scores.iteritems(),
+                           key=lambda score_entry: score_entry[1],
+                           reverse=True)
+    return [str(docID) for docID, score in sorted_scores]
 
 def usage():
     """Prints the proper format for calling this script."""
@@ -113,7 +123,7 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
     begin = time.time() * 1000.0
     with open(dictionary_file) as dict_file:
         temp = json.load(dict_file)
-        doc_length = temp[0]
+        docs_metadata = temp[0]
         dictionary = temp[1]
 
     # open queries
@@ -131,12 +141,17 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
         doc_scores = update_relevance(doc_scores, dictionary, postings,
                                       query_terms, term, single_term_query)
 
-    for key in doc_scores:
-        doc_scores[key] /= doc_length[str(key)]
+    for docID in doc_scores:
+        # [0] is length, [1] is IPC
+        doc_scores[docID] /= docs_metadata[str(docID)][0]
 
-    results = first_k_most_relevant(doc_scores)[:500]
+    # It's OK to get all results, it's really fast anyway.
+    #results = first_k_most_relevant(doc_scores)
+    results = docIDs_decreasing_score(doc_scores)
     # output.write(" ".join([" ".join([docID, str(doc_scores[docID])])
     #                       for docID in results]))
+    
+    # Remove .xml file extension
     output.write(" ".join([docID[:-4] for docID in results]))
     output.write("\n")
 
