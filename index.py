@@ -185,7 +185,9 @@ def calculate_metadata(title_postings_list, abstract_postings_list, IPC_dict):
     
     docs_metadata = {}
     for docID in IPC_dict:
-        docs_metadata[docID] = (title_lengths[docID], abstract_lengths.get(docID, 0), IPC_dict[docID])
+        docs_metadata[docID] = (title_lengths[docID],
+                                abstract_lengths.get(docID, 0),
+                                IPC_dict[docID])
     
     return docs_metadata
 
@@ -198,7 +200,8 @@ def idf_docs(df, big_N):
     """
     return log10(float(big_N)/df)
 
-def write_postings(title_postings_list, abstract_postings_list, postings_file_name, big_N):
+def write_postings(title_postings_list, abstract_postings_list,
+                   postings_file_name, big_N):
     """Given inverted indices for patent title and abstract, write each term
     onto disk, while keeping track of the pointer to the start of postings for
     each term, together with the run length of said postings on the file, which
@@ -306,15 +309,24 @@ def main():
 
     print "Constructing the inverted index...",
     sys.stdout.flush()
-    title_postings_list, abstract_postings_list, IPC_dict = index_all_docs(docs)
-    converted_title_postings_list = convert_preliminary_postings(title_postings_list)
-    converted_abstract_postings_list = convert_preliminary_postings(abstract_postings_list)
-    docs_metadata = calculate_metadata(converted_title_postings_list, converted_abstract_postings_list, IPC_dict)
+    title_postings_list, abstract_postings_list, IPC_dict = \
+        index_all_docs(docs)
+    converted_title_postings_list = \
+        convert_preliminary_postings(title_postings_list)
+    converted_abstract_postings_list = \
+        convert_preliminary_postings(abstract_postings_list)
+    docs_metadata = \
+        calculate_metadata(converted_title_postings_list,
+                           converted_abstract_postings_list,
+                           IPC_dict)
     print "DONE"
 
     print "Writing postings to {0}...".format(postings_file),
     sys.stdout.flush()
-    dict_terms = write_postings(converted_title_postings_list, converted_abstract_postings_list, postings_file, big_N)
+    dict_terms = write_postings(converted_title_postings_list,
+                                converted_abstract_postings_list,
+                                postings_file,
+                                big_N)
     print "DONE"
 
     print "Writing dictionary to {0}...".format(dict_file),
