@@ -200,8 +200,6 @@ def normalize(query):
     :param query:
     :return:
     """
-    # punctuation_removed = string.translate(str(query), None,
-    #                                       string.punctuation)
     query_tokens = nltk.word_tokenize(query)
     punctuation_removed = [word for word in query_tokens
                            if word not in string.punctuation]
