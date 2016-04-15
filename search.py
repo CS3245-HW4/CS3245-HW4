@@ -14,62 +14,6 @@ LANG = "english"
 
 k = 10  # number of results to return
 
-def sort_relevant_docs(most_relevant_docs):
-    """Given a list of tuples of documents in the format of (score, docID),
-    sort them primarily by decreasing score, and tiebreak by increasing docID,
-    and then return up to the first k elements in the list.
-
-    :param most_relevant_docs: A list of tuples of documents and their scores,
-    where each tuple contains (score, docID).
-    """
-    grouped_relevant = groupby(most_relevant_docs,
-                               key=lambda score_doc_entry: score_doc_entry[0])
-    sorted_relevant = [sorted(equal_score_entries[1],
-                              key=lambda equal_score_entry:
-                              equal_score_entry[1])
-                       for equal_score_entries in grouped_relevant]
-    flattened_relevant = chain.from_iterable(sorted_relevant)
-    # Takes first k elements from the iterable. If there are less than k
-    # elements, it stops when the iterable stops
-    trimmed_relevant = islice(flattened_relevant, len(most_relevant_docs))
-    # Finally, extract the docID from the tuple and convert it to a string to
-    # be written to output
-    relevant_docIDs = [str(docID) for score, docID in trimmed_relevant]
-    return list(relevant_docIDs)
-
-
-def first_k_most_relevant(doc_scores):
-    """If there are more than k documents containing terms in a query, return
-    the k documents with the highest scores, tiebroken by least docID first.
-    If there are less than k documents, return them, sorted by highest scores,
-    and tiebroken by least docID first.
-
-    Heapify an array, O(n) + O(k lg n)
-
-    :param doc_scores: A dictionary of docID to its corresponding document's
-    score.
-    """
-
-    # invert the scores so that heappop gives us the smallest score
-    scores = [(-score, docID) for docID, score in doc_scores.iteritems()]
-    heapq.heapify(scores)
-    most_relevant_docs = []
-    for _ in range(len(scores)):
-        if not scores:
-            break
-        most_relevant_docs.append(heapq.heappop(scores))
-    if not most_relevant_docs:
-        return most_relevant_docs
-    # deals with equal-score cases
-    kth_score, kth_docID = most_relevant_docs[-1]
-    while scores:
-        next_score, next_docID = heapq.heappop(scores)
-        if next_score == kth_score:
-            most_relevant_docs.append((next_score, next_docID))
-        else:
-            break
-    return sort_relevant_docs(most_relevant_docs)
-
 def docIDs_decreasing_score(doc_scores):
     """Returns the list of docIDs, sorted by descending document scores. The
     docIDs are also converted to strings here.
@@ -231,10 +175,6 @@ def update_relevance(doc_scores, dictionary, postings_file, query_terms,
         doc_scores[docID] += weight_of_term_in_doc \
             if single_term_query \
             else weight_of_term_in_doc * weight_of_term_in_query
-
-        if docID == "US7442313.xml":
-            print(term)
-            print(doc_scores[docID])
 
     return doc_scores
 

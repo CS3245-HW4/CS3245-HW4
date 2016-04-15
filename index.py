@@ -73,7 +73,7 @@ def normalize(text):
     return [stemmer.stem(word) for word in stopwords_removed]
 
 def get_doc_content(doc_name):
-    """Extracts all tokens in the given document as elements in a list.
+    """Extracts all tokens in the given document as elements in lists.
     Also extracts the IPC subclass of the patent.
 
     :param doc_name: A tuple containing the docID, and doc_path which is the
@@ -121,7 +121,8 @@ def index_all_docs(docs):
 
     :param docs: The list of tuples containing the docID and file path to all
     documents, sorted by docID
-    :return: The inverted index constructed from the given documents
+    :return: The inverted indices constructed from the given documents' titles
+    and abstracts
     """
     title_postings_list = {}
     abstract_postings_list = {}
@@ -159,11 +160,12 @@ def convert_preliminary_postings(preliminary_postings):
 
 
 def calculate_metadata(title_postings_list, abstract_postings_list, IPC_dict):
-    """Calculates VSM lnc vector length for each document, given postings list,
+    """Calculates VSM lnc vector length for each document, given postings lists,
     and add the IPC values.
 
-    :param postings_list: The postings list which contains (docID, lnc_weight)
-    tuples as term postings.
+    :param title_postings_list: The postings list which contains (docID, lnc_weight)
+    tuples as term postings for titles.
+    :param abstract_postings_list: The inverted index of abstracts to be stored
     """
     title_sum_squares = defaultdict(float)
     abstract_sum_squares = defaultdict(float)
@@ -187,7 +189,6 @@ def calculate_metadata(title_postings_list, abstract_postings_list, IPC_dict):
     
     return docs_metadata
 
-
 def idf_docs(df, big_N):
     """Calculates the idf of a term. The formula is log(N/df_t) where the log
     base is 10.
@@ -197,14 +198,14 @@ def idf_docs(df, big_N):
     """
     return log10(float(big_N)/df)
 
-
 def write_postings(title_postings_list, abstract_postings_list, postings_file_name, big_N):
-    """Given an inverted index, write each term onto disk, while keeping track
-    of the pointer to the start of postings for each term, together with the
-    run length of said postings on the file, which will be used to construct
-    the dictionary.
+    """Given inverted indices for patent title and abstract, write each term
+    onto disk, while keeping track of the pointer to the start of postings for
+    each term, together with the run length of said postings on the file, which
+    will be used to construct the dictionary.
 
-    :param postings_list: The inverted index to be stored
+    :param title_postings_list: The inverted index of titles to be stored
+    :param abstract_postings_list: The inverted index of abstracts to be stored
     :param postings_file_name: The name of the postings file
     :return: A dictionary object with term as key and a tuple of (postings
     pointer, postings run length in the file) as value
@@ -249,7 +250,7 @@ def create_dictionary(docs_metadata, dict_terms, dict_file_name):
     the dictionary itself, to create the dictionary file, and then writes the
     resulting list to the specified file path as a JSON data structure.
 
-    :param document_lengths: A mapping from docID to its VSM vector length.
+    :param docs_metadata: A mapping from docID to its metadata.
     :param dict_terms: The dictionary, with term as key and tuple of (postings
     pointer, postings run length in the file) as value
     :param dict_file_name: The file path of the resultant dictionary file
