@@ -81,7 +81,6 @@ def get_doc_content(doc_name):
     """
     docID, doc_path = doc_name
     p = Patent(doc_path).get_data()
-    #doc = " ".join([p.get("Title", ""), p.get("Abstract", "")])
     title = p.get("Title", "")
     abstract = p.get("Abstract", "")
     ipc = p.get("IPC Class", "")
@@ -210,12 +209,10 @@ def write_postings(title_postings_list, abstract_postings_list, postings_file_na
     :return: A dictionary object with term as key and a tuple of (postings
     pointer, postings run length in the file) as value
     """
-    #postings_file = file(postings_file_name, 'w')
     with open(postings_file_name, 'w') as postings_file:
         dict_terms = {"Title":{}, "Abstract":{}}
         for term, postings in title_postings_list.iteritems():
             posting_pointer = postings_file.tell()
-            # doc_tuple has the format (docID, lnc_weight)
             postings_file.write(" ".join([",".join([docID, "%.9f" % weight])
                                           for docID, weight in postings]))
             write_length = postings_file.tell() - posting_pointer
@@ -225,7 +222,6 @@ def write_postings(title_postings_list, abstract_postings_list, postings_file_na
                                 idf_docs(len(postings), big_N))
         for term, postings in abstract_postings_list.iteritems():
             posting_pointer = postings_file.tell()
-            # doc_tuple has the format (docID, lnc_weight)
             postings_file.write(" ".join([",".join([docID, "%.9f" % weight])
                                           for docID, weight in postings]))
             write_length = postings_file.tell() - posting_pointer
@@ -233,7 +229,6 @@ def write_postings(title_postings_list, abstract_postings_list, postings_file_na
             dict_terms["Abstract"][term] = (posting_pointer,
                                 write_length,
                                 idf_docs(len(postings), big_N))
-    #postings_file.close()
     return dict_terms
 
 
