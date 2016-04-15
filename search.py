@@ -27,6 +27,15 @@ def docIDs_decreasing_score(doc_scores):
     return [str(docID) for docID, score in sorted_scores]
 
 def expand_query(sorted_docIDs, doc_scores, docs_metadata):
+    """
+    Expands the query by retrieving the IPC classes of high-scoring documents,
+    and then adds all documents under the same IPC class to the result.
+
+    :param sorted_docIDs: The list of all document IDs with nonzero tf-idf score against the query,
+    sorted in descending score.
+    :param doc_scores: Dictionary mapping from document ID to tf-idf score.
+    :param docs_metadata: Dictionary of document metadata, including IPC classes.
+    """
     top_20_docIDs = sorted_docIDs[:20]
     top_20_IPCs = set([docs_metadata[docID][2] for docID in top_20_docIDs])
     docs_in_IPCs = [docID for docID, doc_metadata in docs_metadata.iteritems() if doc_metadata[2] in top_20_IPCs]
@@ -85,6 +94,8 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
     output = file(output_file, 'w')
 
     q = InformationNeed(query_file).get_data()
+    # From here onwards, operations are split between title and description,
+    # where we match the description to patent abstracts.
     query_title = q["title"]
     query_description = q["description"]
 
