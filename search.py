@@ -86,18 +86,9 @@ def expand_query(sorted_docIDs, doc_scores, docs_metadata):
     top_20_docIDs = sorted_docIDs[:20]
     top_20_IPCs = set([docs_metadata[docID][2] for docID in top_20_docIDs])
     docs_in_IPCs = [docID for docID, doc_metadata in docs_metadata.iteritems() if doc_metadata[2] in top_20_IPCs]
-    #print(len(docs_metadata))
-    #print(len(top_20_IPCs))
-    #print(len(docs_in_IPCs))
     docs_IPCs_scores = [(docID, doc_scores[docID]) if docID in doc_scores else (docID, float(0)) for docID in docs_in_IPCs]
-    #print(docs_IPCs_scores[1])
     sorted_docs_IPCs_scores = sorted(docs_IPCs_scores, key=lambda score_entry: score_entry[1], reverse=True)
     sorted_docs = [docID for docID, doc_score in sorted_docs_IPCs_scores]
-    #print(sorted_docs_IPCs_scores)
-    #for docID in docs_in_IPCs:
-    #    docs_IPCs_scores[docID] = doc_scores[docID] if docID in doc_scores else 0
-    #converted_results = [docID for docID in sorted_nonzero_score_docIDs if docs_metadata[docID][1] in top_20_IPCs]
-    #zero_score_results = [docID for docID in sorted_docIDs if docs_metadata[docID[1] in top_20_IPCs]
     return sorted_docs
 
 def usage():
@@ -150,7 +141,6 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
     output = file(output_file, 'w')
 
     q = InformationNeed(query_file).get_data()
-    #query = " ".join([q["title"], q["description"]])
     query_title = q["title"]
     query_description = q["description"]
 
@@ -172,21 +162,16 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
     for term in description_terms:
         description_scores = update_relevance(description_scores, dictionary, postings,
                                       description_terms, term, single_term_description, "Abstract")
-    print(description_scores["US7442313.xml"])
     for docID in description_scores:
         # [0] is title_length, [1] abstract_length, [2] is IPC
         description_scores[docID] /= docs_metadata[str(docID)][1]
-    print(docs_metadata["US7442313.xml"])
-    print(description_scores["US7442313.xml"])
-    # It's OK to get all results, it's really fast anyway.
-    #results = first_k_most_relevant(doc_scores)
     doc_scores = {}
     for docID in docs_metadata:
-        doc_scores[docID] = (title_scores.get(docID, 0) * 0.1) + (description_scores.get(docID, 0) * 0.95)
+        doc_scores[docID] = (title_scores.get(docID, 0) * 0.05) + (description_scores.get(docID, 0) * 0.95)
+    
     results = docIDs_decreasing_score(doc_scores)
     expanded_results = expand_query(results, doc_scores, docs_metadata)
 
-    #def expand_query(sorted_docIDs, doc_scores, docs_metadata):
     # Remove .xml file extension
     output.write(" ".join([docID[:-4] for docID in expanded_results]))
     output.write("\n")
