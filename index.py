@@ -21,7 +21,6 @@ Length of postings for "retrieval":     dictionary[1]["retrieval"][1]
 idf of "retrieval":                     dictionary[1]["retrieval"][2]
 """
 
-import re
 import getopt
 import sys
 import nltk
@@ -38,6 +37,7 @@ except:
     import pickle
 
 LANG = "english"
+
 
 def load_all_doc_names(docs_dir):
     """Takes in the document directory path, and lists names of all
@@ -58,10 +58,12 @@ def load_all_doc_names(docs_dir):
                     if os.path.isfile(member_path)]
     return joined_files
 
+
 def normalize(text):
     """Converts text into a list of normalized tokens of the text.
 
-    :param text: List of lowercased, stemmed tokens of the text, minus punctuation and stopwords.
+    :param text: List of lowercased, stemmed tokens of the text, minus
+    punctuation and stopwords.
     """
     words = nltk.tokenize.word_tokenize(text)
     punctuation_removed = [word for word in words
@@ -71,6 +73,7 @@ def normalize(text):
                          not in set(nltk.corpus.stopwords.words(LANG))]
     stemmer = nltk.stem.porter.PorterStemmer()
     return [stemmer.stem(word) for word in stopwords_removed]
+
 
 def get_doc_content(doc_name):
     """Extracts all tokens in the given document as elements in lists.
@@ -86,7 +89,8 @@ def get_doc_content(doc_name):
     ipc = p.get("IPC Class", "")
 
     # Tokenize to doc content to sentences, then to words.
-    return (normalize(title), normalize(abstract), ipc)
+    return normalize(title), normalize(abstract), ipc
+
 
 def index_doc(doc_name, title_postings_list, abstract_postings_list):
     """Indexes a single doc in corpus. Makes use of stemming & tokenization.
@@ -94,8 +98,6 @@ def index_doc(doc_name, title_postings_list, abstract_postings_list):
 
     :param doc_name: A tuple containing the docID (to be stored as a posting)
     and doc_path which is the filepath to the document.
-    :param postings_list: The postings list, to be updated (mutated) as part
-    of the indexing process.
     """
     docID, doc_path = doc_name
     title_words, abstract_words, ipc = get_doc_content(doc_name)
@@ -112,6 +114,7 @@ def index_doc(doc_name, title_postings_list, abstract_postings_list):
         else:
             abstract_postings_list[word] = [docID]
     return ipc
+
 
 def index_all_docs(docs):
     """Calls index_doc on all documents in their order in the list passed as
@@ -131,7 +134,8 @@ def index_all_docs(docs):
         docID, doc_path = doc
         ipc = index_doc(doc, title_postings_list, abstract_postings_list)
         IPC_dict[docID] = ipc
-    return (title_postings_list, abstract_postings_list, IPC_dict)
+    return title_postings_list, abstract_postings_list, IPC_dict
+
 
 def lnc_from_tf(tf):
     """Takes tf, and uses lnc to convert it to the term weight. The formula is
@@ -191,6 +195,7 @@ def calculate_metadata(title_postings_list, abstract_postings_list, IPC_dict):
     
     return docs_metadata
 
+
 def idf_docs(df, big_N):
     """Calculates the idf of a term. The formula is log(N/df_t) where the log
     base is 10.
@@ -199,6 +204,7 @@ def idf_docs(df, big_N):
     :param big_N: The total number of documents
     """
     return log10(float(big_N)/df)
+
 
 def write_postings(title_postings_list, abstract_postings_list,
                    postings_file_name, big_N):

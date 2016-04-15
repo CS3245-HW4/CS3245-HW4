@@ -2,11 +2,9 @@ import nltk
 import sys
 import getopt
 import json
-import heapq
 import time
 import math
 import string
-from itertools import groupby, chain, islice
 from information_need import InformationNeed
 
 show_time = False
@@ -14,27 +12,29 @@ LANG = "english"
 
 k = 10  # number of results to return
 
+
 def docIDs_decreasing_score(doc_scores):
     """Returns the list of docIDs, sorted by descending document scores. The
     docIDs are also converted to strings here.
 
     :param doc_scores: A dictionary of docID to its corresponding document's
     score.
+    :return: List of str(docIDs) sorted by descending document scores.
     """
     sorted_scores = sorted(doc_scores.iteritems(),
                            key=lambda score_entry: score_entry[1],
                            reverse=True)
     return [str(docID) for docID, score in sorted_scores]
 
-def expand_query(sorted_docIDs, doc_scores, docs_metadata):
-    """
-    Expands the query by retrieving the IPC classes of high-scoring documents,
-    and then adds all documents under the same IPC class to the result.
 
-    :param sorted_docIDs: The list of all document IDs with nonzero tf-idf score against the query,
-    sorted in descending score.
+def expand_query(sorted_docIDs, doc_scores, docs_metadata):
+    """Expands the query by retrieving the IPC classes of high-scoring
+    documents, then adds all documents under the same IPC class to the result.
+
+    :param sorted_docIDs: The list of all document IDs with nonzero tf-idf
+    score against the query, sorted in descending score.
     :param doc_scores: Dictionary mapping from document ID to tf-idf score.
-    :param docs_metadata: Dictionary of document metadata, including IPC classes.
+    :param docs_metadata: Dictionary of document metadata, including IPC classes
     """
     top_20_docIDs = sorted_docIDs[:20]
     top_20_IPCs = set([docs_metadata[docID][2] for docID in top_20_docIDs])
@@ -48,42 +48,6 @@ def expand_query(sorted_docIDs, doc_scores, docs_metadata):
                                      reverse=True)
     sorted_docs = [docID for docID, doc_score in sorted_docs_IPCs_scores]
     return sorted_docs
-
-def usage():
-    """Prints the proper format for calling this script."""
-    print "usage: " + sys.argv[0] + " -d dictionary-file " \
-                                    "-p postings-file " \
-                                    "-q file-of-queries " \
-                                    "-o output-file-of-results"
-
-
-def load_args():
-    """Attempts to parse command line arguments fed into the script when it was
-    called. Notifies the user of the correct format if parsing failed.
-    """
-    dictionary_file = postings_file = query_file = output_file = None
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:')
-    except getopt.GetoptError, err:
-        usage()
-        sys.exit(2)
-    for o, a in opts:
-        if o == '-d':
-            dictionary_file = a
-        elif o == '-p':
-            postings_file = a
-        elif o == '-q':
-            query_file = a
-        elif o == '-o':
-            output_file = a
-        else:
-            assert False, "unhandled option"
-    if dictionary_file is None or postings_file is None \
-            or query_file is None or output_file is None:
-        usage()
-        sys.exit(2)
-    return dictionary_file, postings_file, query_file, output_file
 
 
 def process_queries(dictionary_file, postings_file, query_file, output_file):
@@ -146,23 +110,11 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
     if show_time: print after-begin
 
 
-"""
-Dictionary
-    - Position index
-    - Length of postings list in characters
-    - Pre-calculated idf
-
-Postings
-    - Doc ID
-    - Pre-calculated log frequency weight
-"""
-
-
 def normalize(query):
-    """ Tokenize and stem
+    """ Tokenize and stem query, also removes punctuations and stopwords.
 
-    :param query:
-    :return:
+    :param query: Query to tokenize and stem.
+    :return: List of normalized query tokens.
     """
     query_tokens = nltk.word_tokenize(query)
     punctuation_removed = [word for word in query_tokens
@@ -177,6 +129,7 @@ def normalize(query):
 
 def update_relevance(doc_scores, dictionary, postings_file, query_terms,
                      term, single_term_query, field):
+
     postings = read_postings(term, dictionary, postings_file, field)
     
     for docID_and_tf in postings:
@@ -203,7 +156,7 @@ def read_postings(term, dictionary, postings_file, field):
         """ Gets own postings list from file and stores it in its attribute.
         For search token nodes only.
 
-        :param term:
+        :param term: Term to search
         :param postings_file: File object referencing the file containing the
         complete set of postings lists.
         :param dictionary: Dictionary that takes search token keys, and
@@ -211,6 +164,7 @@ def read_postings(term, dictionary, postings_file, field):
         starting point of the search token's postings list in the file. The
         length refers to the length of the search token's postings list in
         bytes.
+        :param field: The type of field parameter
         """
 
         if term in dictionary[field]:
@@ -228,9 +182,47 @@ def read_postings(term, dictionary, postings_file, field):
 
 
 def main():
+    # Get inputs
     dictionary_file, postings_file, query_file, output_file = load_args()
-
+    # Runs search function
     process_queries(dictionary_file, postings_file, query_file, output_file)
+
+
+def load_args():
+    """Attempts to parse command line arguments fed into the script when it was
+    called. Notifies the user of the correct format if parsing failed.
+    """
+    dictionary_file = postings_file = query_file = output_file = None
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:')
+    except getopt.GetoptError, err:
+        usage()
+        sys.exit(2)
+    for o, a in opts:
+        if o == '-d':
+            dictionary_file = a
+        elif o == '-p':
+            postings_file = a
+        elif o == '-q':
+            query_file = a
+        elif o == '-o':
+            output_file = a
+        else:
+            assert False, "unhandled option"
+    if dictionary_file is None or postings_file is None \
+            or query_file is None or output_file is None:
+        usage()
+        sys.exit(2)
+    return dictionary_file, postings_file, query_file, output_file
+
+
+def usage():
+    """Prints the proper format for calling this script."""
+    print "usage: " + sys.argv[0] + " -d dictionary-file " \
+                                    "-p postings-file " \
+                                    "-q file-of-queries " \
+                                    "-o output-file-of-results"
 
 
 if __name__ == "__main__":
