@@ -82,7 +82,7 @@ def get_doc_content(doc_name):
     docID, doc_path = doc_name
     p = Patent(doc_path).get_data()
     doc = " ".join([p.get("Title", ""), p.get("Abstract", "")])
-    ipc = p.get("IPC Subclass", "")
+    ipc = p.get("IPC Class", "")
 
     # Tokenize to doc content to sentences, then to words.
     return (normalize(doc), ipc)

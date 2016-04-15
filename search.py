@@ -71,7 +71,8 @@ def first_k_most_relevant(doc_scores):
     return sort_relevant_docs(most_relevant_docs)
 
 def docIDs_decreasing_score(doc_scores):
-    """Returns the list of docIDs, sorted by descending document scores.
+    """Returns the list of docIDs, sorted by descending document scores. The
+    docIDs are also converted to strings here.
 
     :param doc_scores: A dictionary of docID to its corresponding document's
     score.
@@ -80,6 +81,24 @@ def docIDs_decreasing_score(doc_scores):
                            key=lambda score_entry: score_entry[1],
                            reverse=True)
     return [str(docID) for docID, score in sorted_scores]
+
+def expand_query(sorted_docIDs, doc_scores, docs_metadata):
+    top_20_docIDs = sorted_docIDs[:20]
+    top_20_IPCs = set([docs_metadata[docID][1] for docID in top_20_docIDs])
+    docs_in_IPCs = [docID for docID, doc_metadata in docs_metadata.iteritems() if doc_metadata[1] in top_20_IPCs]
+    #print(len(docs_metadata))
+    #print(len(top_20_IPCs))
+    #print(len(docs_in_IPCs))
+    docs_IPCs_scores = [(docID, doc_scores[docID]) if docID in doc_scores else (docID, float(0)) for docID in docs_in_IPCs]
+    #print(docs_IPCs_scores[1])
+    sorted_docs_IPCs_scores = sorted(docs_IPCs_scores, key=lambda score_entry: score_entry[1], reverse=True)
+    sorted_docs = [docID for docID, doc_score in sorted_docs_IPCs_scores]
+    
+    #for docID in docs_in_IPCs:
+    #    docs_IPCs_scores[docID] = doc_scores[docID] if docID in doc_scores else 0
+    #converted_results = [docID for docID in sorted_nonzero_score_docIDs if docs_metadata[docID][1] in top_20_IPCs]
+    #zero_score_results = [docID for docID in sorted_docIDs if docs_metadata[docID[1] in top_20_IPCs]
+    return sorted_docs
 
 def usage():
     """Prints the proper format for calling this script."""
@@ -148,11 +167,11 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
     # It's OK to get all results, it's really fast anyway.
     #results = first_k_most_relevant(doc_scores)
     results = docIDs_decreasing_score(doc_scores)
-    # output.write(" ".join([" ".join([docID, str(doc_scores[docID])])
-    #                       for docID in results]))
-    
+    expanded_results = expand_query(results, doc_scores, docs_metadata)
+
+    #def expand_query(sorted_docIDs, doc_scores, docs_metadata):
     # Remove .xml file extension
-    output.write(" ".join([docID[:-4] for docID in results]))
+    output.write(" ".join([docID[:-4] for docID in expanded_results]))
     output.write("\n")
 
     postings.close()
