@@ -85,9 +85,14 @@ def docIDs_decreasing_score(doc_scores):
 def expand_query(sorted_docIDs, doc_scores, docs_metadata):
     top_20_docIDs = sorted_docIDs[:20]
     top_20_IPCs = set([docs_metadata[docID][2] for docID in top_20_docIDs])
-    docs_in_IPCs = [docID for docID, doc_metadata in docs_metadata.iteritems() if doc_metadata[2] in top_20_IPCs]
-    docs_IPCs_scores = [(docID, doc_scores[docID]) if docID in doc_scores else (docID, float(0)) for docID in docs_in_IPCs]
-    sorted_docs_IPCs_scores = sorted(docs_IPCs_scores, key=lambda score_entry: score_entry[1], reverse=True)
+    docs_in_IPCs = [docID for docID, doc_metadata in docs_metadata.iteritems()
+                    if doc_metadata[2] in top_20_IPCs]
+    docs_IPCs_scores = [(docID, doc_scores[docID])
+                        if docID in doc_scores
+                        else (docID, float(0)) for docID in docs_in_IPCs]
+    sorted_docs_IPCs_scores = sorted(docs_IPCs_scores,
+                                     key=lambda score_entry: score_entry[1],
+                                     reverse=True)
     sorted_docs = [docID for docID, doc_score in sorted_docs_IPCs_scores]
     return sorted_docs
 
@@ -153,21 +158,25 @@ def process_queries(dictionary_file, postings_file, query_file, output_file):
     title_scores = {}
     for term in title_terms:
         title_scores = update_relevance(title_scores, dictionary, postings,
-                                      title_terms, term, single_term_title, "Title")
+                                        title_terms, term, single_term_title,
+                                        "Title")
     for docID in title_scores:
         # [0] is title_length, [1] abstract_length, [2] is IPC
         title_scores[docID] /= docs_metadata[str(docID)][0]
 
     description_scores = {}
     for term in description_terms:
-        description_scores = update_relevance(description_scores, dictionary, postings,
-                                      description_terms, term, single_term_description, "Abstract")
+        description_scores = update_relevance(description_scores, dictionary,
+                                              postings, description_terms,
+                                              term, single_term_description,
+                                              "Abstract")
     for docID in description_scores:
         # [0] is title_length, [1] abstract_length, [2] is IPC
         description_scores[docID] /= docs_metadata[str(docID)][1]
     doc_scores = {}
     for docID in docs_metadata:
-        doc_scores[docID] = (title_scores.get(docID, 0) * 0.05) + (description_scores.get(docID, 0) * 0.95)
+        doc_scores[docID] = (title_scores.get(docID, 0) * 0.05) \
+                            + (description_scores.get(docID, 0) * 0.95)
     
     results = docIDs_decreasing_score(doc_scores)
     expanded_results = expand_query(results, doc_scores, docs_metadata)
@@ -263,7 +272,7 @@ def read_postings(term, dictionary, postings_file, field):
             postings = map(lambda docID_and_tf :
                            docID_and_tf.split(","), postings)
             postings = map(lambda docID_and_tf :
-                           [docID_and_tf[0], float(docID_and_tf[1])],postings)
+                           [docID_and_tf[0], float(docID_and_tf[1])], postings)
             return postings
         else:
             return []
