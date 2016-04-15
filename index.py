@@ -255,9 +255,7 @@ def create_dictionary(docs_metadata, dict_terms, dict_file_name):
     :param dict_file_name: The file path of the resultant dictionary file
     """
     with open(dict_file_name, 'w') as dict_file:
-    #dict_file = file(dict_file_name, 'w')
         json.dump((docs_metadata, dict_terms), dict_file)
-    #dict_file.close()
 
 
 def usage():
